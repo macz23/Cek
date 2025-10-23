@@ -1,0 +1,65 @@
+<!-- save as share-location.html -->
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Contoh: klik dan bagikan lokasi</title>
+</head>
+<body>
+  <p>
+    <a href="https://example.com/target" id="track-link">Klik di sini untuk membuka halaman (akan minta izin lokasi)</a>
+  </p>
+
+<script>
+document.getElementById('track-link').addEventListener('click', async function(evt){
+  // hentikan navigasi sementara
+  evt.preventDefault();
+  const targetUrl = this.href;
+
+  // beri tahu pengguna (opsional) — selalu minta izin secara eksplisit di UI jika perlu
+  if(!navigator.geolocation) {
+    // fallback: lanjut tanpa lokasi
+    window.location = targetUrl;
+    return;
+  }
+
+  // minta lokasi (akan munculkan prompt browser)
+  navigator.geolocation.getCurrentPosition(async function(position){
+    try {
+      const payload = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: position.timestamp,
+        // bisa tambahkan info lain (user agent), TAPI jangan kirim data sensitif tanpa persetujuan
+        ua: navigator.userAgent
+      };
+
+      // kirim ke servermu (POST)
+      await fetch('/report-location', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+        keepalive: true // membantu request tetap dikirim saat navigasi
+      });
+    } catch (err) {
+      console.error('Gagal kirim lokasi:', err);
+    } finally {
+      // lanjutkan navigasi meskipun gagal
+      window.location = targetUrl;
+    }
+  }, function(error){
+    console.warn('User menolak atau error lokasi:', error);
+    // lanjut tanpa lokasi
+    window.location = targetUrl;
+  }, {
+    maximumAge: 60_000, // 1 menit cache
+    timeout: 10_000,    // timeout 10 detik
+    enableHighAccuracy: false
+  });
+
+});
+</script>
+</body>
+</html>
